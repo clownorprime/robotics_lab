@@ -1,0 +1,12 @@
+robot: "pendulum"
+robot_scene: "models/pendulum.xml"
+command_topic: "/mujoco_sim/command"
+state_topic: "/mujoco_sim/state"
+kp: 20.0
+kd: 1.0
+use_joystick: 0
+joystick_type: "xbox"
+joystick_device: "/dev/input/js0"
+joystick_bits: 16
+print_scene_information: 1
+enable_elastic_band: 0

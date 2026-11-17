@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>robotics_lab</name>
+  <version>0.1.0</version>
+  <description>Generic MuJoCo simulator with a ROS 2 command and state interface.</description>
+  <maintainer email="kosimo@example.com">kosimo</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>libeigen3-dev</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>rclcpp</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <depend>libyaml-cpp-dev</depend>
+  <depend>libboost-program-options-dev</depend>
+  <depend>libglfw3-dev</depend>
+  <depend>libfmt-dev</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
