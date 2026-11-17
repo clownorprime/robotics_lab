@@ -9,15 +9,14 @@
 namespace mujoco_sim {
 
 struct Ros2Backend::Impl {
-  Impl(mjModel* m, mjData* d, std::recursive_mutex& simulation_mutex,
+  Impl(SimulationContext& simulation,
        std::string command, std::string state, double p, double v)
-      : model(m), data(d), sim_mutex(simulation_mutex), kp(p), kd(v),
+      : simulation(simulation), kp(p), kd(v),
         command_topic(std::move(command)), state_topic(std::move(state)),
-        command_q(m->nu, 0.0), command_dq(m->nu, 0.0), command_tau(m->nu, 0.0) {}
+        command_q(simulation.model->nu, 0.0), command_dq(simulation.model->nu, 0.0),
+        command_tau(simulation.model->nu, 0.0) {}
 
-  mjModel* model;
-  mjData* data;
-  std::recursive_mutex& sim_mutex;
+  SimulationContext& simulation;
   double kp, kd;
   std::string command_topic, state_topic;
   std::vector<double> command_q, command_dq, command_tau;
@@ -29,9 +28,9 @@ struct Ros2Backend::Impl {
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pub;
 };
 
-Ros2Backend::Ros2Backend(mjModel* m, mjData* d, std::recursive_mutex& simulation_mutex,
+Ros2Backend::Ros2Backend(SimulationContext& simulation,
                          std::string command_topic, std::string state_topic, double kp, double kd)
-    : impl_(std::make_unique<Impl>(m, d, simulation_mutex, std::move(command_topic),
+    : impl_(std::make_unique<Impl>(simulation, std::move(command_topic),
                                    std::move(state_topic), kp, kd)) {}
 
 Ros2Backend::~Ros2Backend() { stop(); }
@@ -42,12 +41,18 @@ void Ros2Backend::start() {
   impl_->sub = impl_->node->create_subscription<std_msgs::msg::Float64MultiArray>(
       impl_->command_topic, rclcpp::QoS(10),
       [this](std_msgs::msg::Float64MultiArray::ConstSharedPtr msg) {
-        const size_t n = impl_->model->nu;
+        std::lock_guard<std::recursive_mutex> sim_lock(impl_->simulation.mutex);
+        const size_t n = impl_->simulation.model->nu;
         if (msg->data.size() != 3 * n) {
           RCLCPP_WARN(impl_->node->get_logger(), "Command requires %zu values", 3 * n);
           return;
         }
         std::lock_guard<std::mutex> lock(impl_->command_mutex);
+        if (impl_->command_q.size() != n) {
+          impl_->command_q.assign(n, 0.0);
+          impl_->command_dq.assign(n, 0.0);
+          impl_->command_tau.assign(n, 0.0);
+        }
         std::copy_n(msg->data.begin(), n, impl_->command_q.begin());
         std::copy_n(msg->data.begin() + n, n, impl_->command_dq.begin());
         std::copy_n(msg->data.begin() + 2 * n, n, impl_->command_tau.begin());
@@ -58,15 +63,15 @@ void Ros2Backend::start() {
     while (impl_->running && rclcpp::ok()) {
       rclcpp::spin_some(impl_->node);
       {
-        std::lock_guard<std::recursive_mutex> sim_lock(impl_->sim_mutex);
+        std::lock_guard<std::recursive_mutex> sim_lock(impl_->simulation.mutex);
         std::lock_guard<std::mutex> cmd_lock(impl_->command_mutex);
-        const mjModel* m = impl_->model;
-        const mjData* d = impl_->data;
+        const mjModel* m = impl_->simulation.model;
+        const mjData* d = impl_->simulation.data;
         if (!m || !d) break;
         for (int i = 0; i < m->nu; ++i) {
           // A generic actuator need not correspond to qpos[i]; use raw command
           // torque here. The controller publishes zero q/dq references.
-          impl_->data->ctrl[i] = impl_->command_tau[i];
+          impl_->simulation.data->ctrl[i] = impl_->command_tau[i];
         }
         std_msgs::msg::Float64MultiArray state;
         state.data.reserve(m->nq + m->nv + m->na + m->nu);

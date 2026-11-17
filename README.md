@@ -1,4 +1,4 @@
-# mujoco_sim
+# robotics_lab
 
 通用 ROS 2 MuJoCo 控制器，支持 Go2、G1、pendulum 以及自定义 MuJoCo 模型。项目只使用 ROS 2 后端，不依赖 Unitree SDK2 或 Unitree DDS。
 

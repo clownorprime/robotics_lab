@@ -16,6 +16,13 @@ struct Command {
   std::vector<double> tau;
 };
 
+// References the owner's current model/data slots so reloads are visible.
+struct SimulationContext {
+  mjModel*& model;
+  mjData*& data;
+  std::recursive_mutex& mutex;
+};
+
 class Backend {
  public:
   virtual ~Backend() = default;
@@ -27,7 +34,7 @@ class Backend {
 // [q(na), dq(na), tau(na)], where na is the number of actuators.
 class Ros2Backend final : public Backend {
  public:
-  Ros2Backend(mjModel* model, mjData* data, std::recursive_mutex& simulation_mutex,
+  Ros2Backend(SimulationContext& simulation,
               std::string command_topic, std::string state_topic, double kp, double kd);
   ~Ros2Backend() override;
   void start() override;

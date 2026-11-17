@@ -212,6 +212,7 @@ namespace
           dnew = mj_makeData(mnew);
         if (dnew)
         {
+          const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
           sim.Load(mnew, dnew, sim.dropfilename);
 
           mj_deleteData(d);
@@ -242,6 +243,7 @@ namespace
           dnew = mj_makeData(mnew);
         if (dnew)
         {
+          const std::unique_lock<std::recursive_mutex> lock(sim.mtx);
           sim.Load(mnew, dnew, sim.filename);
 
           mj_deleteData(d);
@@ -499,6 +501,8 @@ int main(int argc, char **argv)
     std::make_unique<mj::GlfwAdapter>(),
     &cam, &opt, &pert, /* is_passive = */ false);
 
+  mujoco_sim::SimulationContext simulation{m, d, sim->mtx};
+
   // Load the initial MuJoCo model before constructing a backend that stores
   // pointers to mjModel/mjData.
   std::thread physicsthreadhandle(&PhysicsThread, sim.get(), param::config.robot_scene.c_str());
@@ -506,7 +510,7 @@ int main(int argc, char **argv)
 
   std::unique_ptr<mujoco_sim::Backend> ros2_backend =
       std::make_unique<mujoco_sim::Ros2Backend>(
-          m, d, sim->mtx, param::config.command_topic, param::config.state_topic,
+          simulation, param::config.command_topic, param::config.state_topic,
           param::config.kp, param::config.kd);
   ros2_backend->start();
 
